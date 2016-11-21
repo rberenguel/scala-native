@@ -14,7 +14,7 @@ class _Object {
     getClass.getName + "@" + Integer.toHexString(hashCode)
 
   def _getClass(): _Class[_] =
-    new _Class(runtime.getType(this))
+    new _Class(runtime.getInfo(this))
 
   def _notify(): Unit =
     runtime.getMonitor(this)._notify

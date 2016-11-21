@@ -49,10 +49,6 @@ object stdlib {
   def strtof(str: CString, str_end: Ptr[CString]): CFloat  = extern
   def strtod(str: CString, str_end: Ptr[CString]): CDouble = extern
 
-  // Types
-
-  @struct class jmp_buf private ()
-
   // Macros
 
   @name("scalanative_libc_exit_success")
@@ -61,4 +57,7 @@ object stdlib {
   def EXIT_FAILURE: CInt = extern
   @name("scalanative_libc_rand_max")
   def RAND_MAX: CInt = extern
+
+  // TODO:
+  // @struct class jmp_buf private ()
 }

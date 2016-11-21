@@ -5,16 +5,16 @@ import java.lang._Class
 
 object Array {
   def newInstance(componentType: _Class[_], length: Int): AnyRef = {
-    val ty = componentType.ty
+    val info = componentType.info
 
-    if (ty == typeof[PrimitiveBoolean]) new scala.Array[Boolean](length)
-    else if (ty == typeof[PrimitiveChar]) new scala.Array[Char](length)
-    else if (ty == typeof[PrimitiveByte]) new scala.Array[Byte](length)
-    else if (ty == typeof[PrimitiveShort]) new scala.Array[Short](length)
-    else if (ty == typeof[PrimitiveInt]) new scala.Array[Int](length)
-    else if (ty == typeof[PrimitiveLong]) new scala.Array[Long](length)
-    else if (ty == typeof[PrimitiveFloat]) new scala.Array[Float](length)
-    else if (ty == typeof[PrimitiveDouble]) new scala.Array[Double](length)
+    if (info == infoof[Boolean]) new scala.Array[Boolean](length)
+    else if (info == infoof[Char]) new scala.Array[Char](length)
+    else if (info == infoof[Byte]) new scala.Array[Byte](length)
+    else if (info == infoof[Short]) new scala.Array[Short](length)
+    else if (info == infoof[Int]) new scala.Array[Int](length)
+    else if (info == infoof[Long]) new scala.Array[Long](length)
+    else if (info == infoof[Float]) new scala.Array[Float](length)
+    else if (info == infoof[Double]) new scala.Array[Double](length)
     else new scala.Array[Object](length)
   }
 

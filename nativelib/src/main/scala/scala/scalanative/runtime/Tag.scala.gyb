@@ -1,0 +1,47 @@
+package scala.scalanative
+package runtime
+
+import scala.reflect.ClassTag
+import native._
+
+sealed trait Tag[P]
+
+object Tag {
+  implicit val Unit: Tag[Unit]     = new Tag[Unit] {}
+  implicit val Bool: Tag[Boolean]  = new Tag[Boolean] {}
+  implicit val Char: Tag[Char]     = new Tag[Char] {}
+  implicit val Byte: Tag[Byte]     = new Tag[Byte] {}
+  implicit val UByte: Tag[UByte]   = new Tag[UByte] {}
+  implicit val Short: Tag[Short]   = new Tag[Short] {}
+  implicit val UShort: Tag[UShort] = new Tag[UShort] {}
+  implicit val Int: Tag[Int]       = new Tag[Int] {}
+  implicit val UInt: Tag[UInt]     = new Tag[UInt] {}
+  implicit val Long: Tag[Long]     = new Tag[Long] {}
+  implicit val ULong: Tag[ULong]   = new Tag[ULong] {}
+  implicit val Float: Tag[Float]   = new Tag[Float] {}
+  implicit val Double: Tag[Double] = new Tag[Double] {}
+
+  implicit def Ptr[T: Tag]: Tag[Ptr[T]] = new Tag[Ptr[T]] {}
+
+  implicit def Class[T <: AnyRef: ClassTag]: Tag[T] = new Tag[T] {}
+
+% for N in range(1, 23):
+%   Ts      = ["T" + str(i) for i in range(1, N + 1)]
+%   BoundTs = ", ".join(map(lambda T: T + ": Tag", Ts))
+%   JustTs  = ", ".join(Ts)
+
+  implicit def Tuple${N}[${BoundTs}]: Tag[Tuple${N}[${JustTs}]] =
+    new Tag[Tuple${N}[${JustTs}]] {}
+
+% end
+
+% for N in range(0, 23):
+%   Ts      = ["T" + str(i) for i in range(1, N + 1)] + ["R"]
+%   BoundTs = ", ".join(map(lambda T: T + ": Tag", Ts))
+%   JustTs  = ", ".join(Ts)
+
+  implicit def FunctionPtr${N}[${BoundTs}]: Tag[FunctionPtr${N}[${JustTs}]] =
+    new Tag[FunctionPtr${N}[${JustTs}]] {}
+
+% end
+}

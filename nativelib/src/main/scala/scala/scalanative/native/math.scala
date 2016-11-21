@@ -6,12 +6,10 @@ object math {
 
   // Basic operations
 
-  def abs(x: CInt): CInt                                      = extern
-  def labs(x: CLong): CLong                                   = extern
-  def llabs(x: CLongLong): CLongLong                          = extern
-  def div(x: CInt, y: CInt): div_t                            = extern
-  def ldiv(x: CLong, y: CLong): ldiv_t                        = extern
-  def lldiv(x: CLongLong, y: CLongLong): lldiv_t              = extern
+  def abs(x: CInt): CInt             = extern
+  def labs(x: CLong): CLong          = extern
+  def llabs(x: CLongLong): CLongLong = extern
+
   def fabsf(arg: CFloat): CFloat                              = extern
   def fabs(arg: CDouble): CDouble                             = extern
   def fmodf(x: CFloat, y: CFloat): CFloat                     = extern
@@ -146,10 +144,6 @@ object math {
 
   // Types
 
-  @struct class div_t(val x: CInt, val y: CInt)
-  @struct class ldiv_t(val x: CLong, val y: CLong)
-  @struct class lldiv_t(val x: CLongLong, val y: CLongLong)
-
   // Macros
 
   @name("scalanative_libc_huge_valf")
@@ -166,4 +160,12 @@ object math {
   def MATH_ERRNO: CInt = extern
   @name("scalanative_libc_math_errexcept")
   def MATH_ERREXCEPT: CInt = extern
+
+  // TODO:
+  // @struct class div_t(val x: CInt, val y: CInt)
+  // @struct class ldiv_t(val x: CLong, val y: CLong)
+  // @struct class lldiv_t(val x: CLongLong, val y: CLongLong)
+  // def div(x: CInt, y: CInt): div_t = extern
+  // def ldiv(x: CLong, y: CLong): ldiv_t = extern
+  // def lldiv(x: CLongLong, y: CLongLong): lldiv_t = extern
 }

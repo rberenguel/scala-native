@@ -24,6 +24,9 @@ trait NirDefinitions { self: NirGlobalAddons =>
     lazy val PtrSubMethod    = getDecl(PtrClass, TermName("$minus"))
     lazy val PtrApplyMethod  = getDecl(PtrClass, TermName("apply"))
     lazy val PtrUpdateMethod = getDecl(PtrClass, TermName("update"))
+    lazy val PtrFieldMethod  = (1 to 22).map { i =>
+      getDecl(PtrClass, TermName("_" + i))
+    }
 
     lazy val NameClass   = getRequiredClass("scala.scalanative.native.name")
     lazy val LinkClass   = getRequiredClass("scala.scalanative.native.link")
@@ -64,6 +67,47 @@ trait NirDefinitions { self: NirGlobalAddons =>
       getDecl(FunctionPtrModule, TermName("fromFunction" + n))
     }
 
+    lazy val TagModule        = getRequiredModule("scala.scalanative.runtime.Tag")
+    lazy val UnitTagMethod    = getDecl(TagModule, TermName("Unit"))
+    lazy val BooleanTagMethod = getDecl(TagModule, TermName("Boolean"))
+    lazy val CharTagMethod    = getDecl(TagModule, TermName("Char"))
+    lazy val ByteTagMethod    = getDecl(TagModule, TermName("Byte"))
+    lazy val UByteTagMethod   = getDecl(TagModule, TermName("UByte"))
+    lazy val ShortTagMethod   = getDecl(TagModule, TermName("Short"))
+    lazy val UShortTagMethod  = getDecl(TagModule, TermName("UShort"))
+    lazy val IntTagMethod     = getDecl(TagModule, TermName("Int"))
+    lazy val UIntTagMethod    = getDecl(TagModule, TermName("UInt"))
+    lazy val LongTagMethod    = getDecl(TagModule, TermName("Long"))
+    lazy val ULongTagMethod   = getDecl(TagModule, TermName("ULong"))
+    lazy val FloatTagMethod   = getDecl(TagModule, TermName("Float"))
+    lazy val DoubleTagMethod  = getDecl(TagModule, TermName("Double"))
+    lazy val PtrTagMethod     = getDecl(TagModule, TermName("Ptr"))
+    lazy val ClassTagMethod   = getDecl(TagModule, TermName("Class"))
+    lazy val TupleTagMethod = (1 to 22).map { n =>
+      getDecl(TagModule, TermName("Tuple" + n))
+    }
+    lazy val FunctionPtrTagMethod = (0 to 22).map { n =>
+      getDecl(TagModule, TermName("FunctionPtr" + n))
+    }
+
+    lazy val ClassTagModule  = getRequiredModule("scala.reflect.ClassTag")
+    lazy val ClassTagApply   = getDecl(ClassTagModule, TermName("apply"))
+    lazy val ByteClassTag    = getDecl(ClassTagModule, TermName("Byte"))
+    lazy val ShortClassTag   = getDecl(ClassTagModule, TermName("Short"))
+    lazy val CharClassTag    = getDecl(ClassTagModule, TermName("Char"))
+    lazy val IntClassTag     = getDecl(ClassTagModule, TermName("Int"))
+    lazy val LongClassTag    = getDecl(ClassTagModule, TermName("Long"))
+    lazy val FloatClassTag   = getDecl(ClassTagModule, TermName("Float"))
+    lazy val DoubleClassTag  = getDecl(ClassTagModule, TermName("Double"))
+    lazy val BooleanClassTag = getDecl(ClassTagModule, TermName("Boolean"))
+    lazy val UnitClassTag    = getDecl(ClassTagModule, TermName("Unit"))
+    lazy val AnyClassTag     = getDecl(ClassTagModule, TermName("Any"))
+    lazy val ObjectClassTag  = getDecl(ClassTagModule, TermName("Object"))
+    lazy val AnyValClassTag  = getDecl(ClassTagModule, TermName("AnyVal"))
+    lazy val AnyRefClassTag  = getDecl(ClassTagModule, TermName("AnyRef"))
+    lazy val NothingClassTag = getDecl(ClassTagModule, TermName("Nothing"))
+    lazy val NullClassTag    = getDecl(ClassTagModule, TermName("Null"))
+
     // Native runtime
 
     lazy val RuntimePackage = getPackage(TermName("scala.scalanative.runtime"))
@@ -82,7 +126,7 @@ trait NirDefinitions { self: NirGlobalAddons =>
 
     lazy val RuntimeModule = getRequiredModule(
       "scala.scalanative.runtime.package")
-    lazy val TypeofMethod = getMember(RuntimeModule, TermName("typeof"))
+    lazy val InfoofMethod = getMember(RuntimeModule, TermName("infoof"))
     lazy val GetMonitorMethod =
       getMember(RuntimeModule, TermName("getMonitor"))
     lazy val DivUIntMethod  = getMember(RuntimeModule, TermName("divUInt"))
@@ -193,24 +237,6 @@ trait NirDefinitions { self: NirGlobalAddons =>
       'F' -> getDecl(BoxesRunTimeModule, TermName("unboxToFloat")),
       'D' -> getDecl(BoxesRunTimeModule, TermName("unboxToDouble"))
     )
-
-    lazy val ClassTagModule  = getRequiredModule("scala.reflect.ClassTag")
-    lazy val ClassTagApply   = getDecl(ClassTagModule, TermName("apply"))
-    lazy val ByteClassTag    = getDecl(ClassTagModule, TermName("Byte"))
-    lazy val ShortClassTag   = getDecl(ClassTagModule, TermName("Short"))
-    lazy val CharClassTag    = getDecl(ClassTagModule, TermName("Char"))
-    lazy val IntClassTag     = getDecl(ClassTagModule, TermName("Int"))
-    lazy val LongClassTag    = getDecl(ClassTagModule, TermName("Long"))
-    lazy val FloatClassTag   = getDecl(ClassTagModule, TermName("Float"))
-    lazy val DoubleClassTag  = getDecl(ClassTagModule, TermName("Double"))
-    lazy val BooleanClassTag = getDecl(ClassTagModule, TermName("Boolean"))
-    lazy val UnitClassTag    = getDecl(ClassTagModule, TermName("Unit"))
-    lazy val AnyClassTag     = getDecl(ClassTagModule, TermName("Any"))
-    lazy val ObjectClassTag  = getDecl(ClassTagModule, TermName("Object"))
-    lazy val AnyValClassTag  = getDecl(ClassTagModule, TermName("AnyVal"))
-    lazy val AnyRefClassTag  = getDecl(ClassTagModule, TermName("AnyRef"))
-    lazy val NothingClassTag = getDecl(ClassTagModule, TermName("Nothing"))
-    lazy val NullClassTag    = getDecl(ClassTagModule, TermName("Null"))
 
     lazy val PureModules: Set[Symbol] =
       Set(PredefModule, BoxesRunTimeModule, NativeModule, RuntimeBoxesModule)

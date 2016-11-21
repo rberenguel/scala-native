@@ -1,0 +1,34 @@
+package scala.scalanative
+package native
+
+import scala.language.dynamics
+import scalanative.runtime._
+
+/** The C `const T *` pointer. */
+final class Ptr[T] private () {
+
+  /** Dereference a pointer. */
+  def unary_!(implicit T: Tag[T]): T = undefined
+
+  /** Store a value to the address pointed at by a pointer. */
+  def `unary_!_=`(value: T)(implicit T: Tag[T]): Unit = undefined
+
+  /** Compute a derived pointer by adding given offset. */
+  def +(offset: Word)(implicit T: Tag[T]): Ptr[T] = undefined
+
+  /** Compute a derived pointer by substritaging given offset. */
+  def -(offset: Word)(implicit T: Tag[T]): Ptr[T] = undefined
+
+  /** Read a value at given offset. Equivalent to !(offset + word). */
+  def apply(offset: Word)(implicit T: Tag[T]): T = undefined
+
+  /** Store a value to given offset. Equivalent to !(offset + word) = value. */
+  def update(offset: Word, value: T)(implicit T: Tag[T]): T = undefined
+
+% for N in range(1, 23):
+
+  /** Get a derived pointer to the ${N}-th member of a produtag. */
+  def _${N}[F](implicit T: Tag[T], F: Field${N}[T, F]): Ptr[F] = undefined
+
+% end
+}

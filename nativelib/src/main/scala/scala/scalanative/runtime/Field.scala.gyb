@@ -1,0 +1,22 @@
+package scala.scalanative
+package runtime
+
+% for N in range(1, 23):
+
+final class Field${N}[P, F] private ()
+
+object Field${N} {
+
+% for K in range(N, 23):
+%   FK = "F" + str(N)
+%   Fs = ", ".join(["F" + str(i) for i in range(1, K + 1)])
+
+  implicit def materialize${K}[${Fs}]: Field${N}[Tuple${K}[${Fs}], ${FK}] =
+    new Field${N}()
+
+% end
+
+}
+
+% end
+

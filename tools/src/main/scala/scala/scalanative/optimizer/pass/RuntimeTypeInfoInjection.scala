@@ -44,9 +44,6 @@ class RuntimeTypeInfoInjection(implicit top: Top, fresh: Fresh) extends Pass {
 }
 
 object RuntimeTypeInfoInjection extends PassCompanion {
-  override val depends =
-    Seq(Rt.Type.name)
-
   override def apply(config: tools.Config, top: Top) =
     new RuntimeTypeInfoInjection()(top, top.fresh)
 }

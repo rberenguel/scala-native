@@ -36,7 +36,7 @@ object System {
   var out: PrintStream = new PrintStream(new CFileOutputStream(stdio.stdout))
   var err: PrintStream = new PrintStream(new CFileOutputStream(stdio.stderr))
 
-  private class CFileOutputStream(stream: Ptr[stdio.FILE])
+  private class CFileOutputStream(stream: Ptr[scala.Byte])
       extends java.io.OutputStream {
     private val buf = stdlib.malloc(1).cast[Ptr[UByte]]
     def write(b: Int): Unit = {

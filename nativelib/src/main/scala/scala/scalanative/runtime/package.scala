@@ -1,16 +1,24 @@
 package scala.scalanative
 
-import scala.reflect.ClassTag
 import native._
 import runtime.Intrinsics._
 
 package object runtime {
 
+  /** Runtime type information. */
+  type Info = (Int, String)
+
+  /** User-friendly accessors for type pointers. */
+  implicit class InfoOps(val ptr: Ptr[Info]) extends AnyVal {
+    def id: Int      = !ptr._1
+    def name: String = !ptr._2
+  }
+
   /** Used as a stub right hand of intrinsified methods. */
   def undefined: Nothing = throw new UndefinedBehaviorError
 
   /** Returns info pointer for given type. */
-  def typeof[T](implicit ct: ClassTag[T]): Ptr[Type] = undefined
+  def infoof[T](implicit T: Tag[T]): Ptr[Info] = undefined
 
   /** Intrinsified unsigned devision on ints. */
   def divUInt(l: Int, r: Int): Int = undefined
@@ -40,30 +48,11 @@ package object runtime {
   def intToULong(v: Int): Long = undefined
 
   /** Select value without branching. */
-  def select[T](cond: Boolean, thenp: T, elsep: T)(
-      implicit ct: ClassTag[T]): T = undefined
-
-  /** Allocate memory in gc heap using given info pointer. */
-  def alloc(ty: Ptr[Type], size: CSize): Ptr[_] = {
-    val ptr = GC.malloc(size).cast[Ptr[Ptr[Type]]]
-    !ptr = ty
-    ptr
-  }
-
-  /** Allocate memory in gc heap using given info pointer.
-   *
-   * The allocated memory cannot be used to store pointers.
-   */
-  def allocAtomic(ty: Ptr[Type], size: CSize): Ptr[_] = {
-    val ptr = GC.malloc_atomic(size).cast[Ptr[Ptr[Type]]]
-    // initialize to 0
-    `llvm.memset.p0i8.i64`(ptr.cast[Ptr[Byte]], 0, size, 1, false)
-    !ptr = ty
-    ptr
-  }
+  def select[T](cond: Boolean, thenp: T, elsep: T)(implicit T: Tag[T]): T =
+    undefined
 
   /** Read type information of given object. */
-  def getType(obj: Object): Ptr[Type] = !obj.cast[Ptr[Ptr[Type]]]
+  def getInfo(obj: Object): Ptr[Info] = !obj.cast[Ptr[Ptr[Info]]]
 
   /** Get monitor for given object. */
   def getMonitor(obj: Object): Monitor = Monitor.dummy

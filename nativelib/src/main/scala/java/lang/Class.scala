@@ -3,14 +3,14 @@ package java.lang
 import scalanative.native.Ptr
 import scalanative.runtime.{Array => _, _}
 
-final class _Class[A](val ty: Ptr[Type]) {
-  def getName(): String = (!ty).name
+final class _Class[A](val info: Ptr[Info]) {
+  def getName(): String = info.name
 
-  override def hashCode: Int = ty.cast[scala.Long].##
+  override def hashCode: Int = info.cast[scala.Long].##
 
   override def equals(other: Any): scala.Boolean = other match {
     case other: _Class[_] =>
-      ty == other.ty
+      info == other.info
     case _ =>
       false
   }

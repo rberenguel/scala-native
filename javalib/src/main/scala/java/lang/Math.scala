@@ -24,18 +24,6 @@ object Math {
   @inline def acos(a: scala.Double): scala.Double =
     cmath.acos(a)
 
-  @inline def addExact(a: scala.Int, b: scala.Int): scala.Int = {
-    val overflow = `llvm.sadd.with.overflow.i32`(a, b)
-    if (overflow.flag) throw new ArithmeticException("Integer overflow")
-    else overflow.value
-  }
-
-  @inline def addExact(a: scala.Long, b: scala.Long): scala.Long = {
-    val overflow = `llvm.sadd.with.overflow.i64`(a, b)
-    if (overflow.flag) throw new ArithmeticException("Long overflow")
-    else overflow.value
-  }
-
   @inline def asin(a: scala.Double): scala.Double =
     cmath.asin(a)
 
@@ -64,12 +52,6 @@ object Math {
 
   @inline def cosh(a: scala.Double): scala.Double =
     cmath.cosh(a)
-
-  @inline def decrementExact(a: scala.Int): scala.Int =
-    subtractExact(a, 1)
-
-  @inline def decrementExact(a: scala.Long): scala.Long =
-    subtractExact(a, 1L)
 
   @inline def exp(a: scala.Double): scala.Double =
     `llvm.exp.f64`(a)
@@ -116,12 +98,6 @@ object Math {
   @inline def IEEEremainder(f1: scala.Double, f2: scala.Double): Double =
     cmath.remainder(f1, f2)
 
-  @inline def incrementExact(a: scala.Int): scala.Int =
-    addExact(a, 1)
-
-  @inline def incrementExact(a: scala.Long): scala.Long =
-    addExact(a, 1L)
-
   @inline def log(a: scala.Double): scala.Double =
     `llvm.log.f64`(a)
 
@@ -154,24 +130,6 @@ object Math {
 
   @inline def min(a: scala.Long, b: scala.Long): scala.Long =
     if (a < b) a else b
-
-  @inline def multiplyExact(a: scala.Int, b: scala.Int): scala.Int = {
-    val overflow = `llvm.smul.with.overflow.i32`(a, b)
-    if (overflow.flag) throw new ArithmeticException("Integer overflow")
-    else overflow.value
-  }
-
-  @inline def multiplyExact(a: scala.Long, b: scala.Long): scala.Long = {
-    val overflow = `llvm.smul.with.overflow.i64`(a, b)
-    if (overflow.flag) throw new ArithmeticException("Long overflow")
-    else overflow.value
-  }
-
-  @inline def negateExact(a: scala.Int): scala.Int =
-    subtractExact(0, a)
-
-  @inline def negateExact(a: scala.Long): scala.Long =
-    subtractExact(0, a)
 
   def nextAfter(a: scala.Float, b: scala.Double): scala.Float = {
     val aabs = abs(a.toDouble)
@@ -267,18 +225,6 @@ object Math {
   @inline def sqrt(a: scala.Double): scala.Double =
     `llvm.sqrt.f64`(a)
 
-  @inline def subtractExact(a: scala.Int, b: scala.Int): scala.Int = {
-    val overflow = `llvm.ssub.with.overflow.i32`(a, b)
-    if (overflow.flag) throw new ArithmeticException("Integer overflow")
-    else overflow.value
-  }
-
-  @inline def subtractExact(a: scala.Long, b: scala.Long): scala.Long = {
-    val overflow = `llvm.ssub.with.overflow.i64`(a, b)
-    if (overflow.flag) throw new ArithmeticException("Long overflow")
-    else overflow.value
-  }
-
   @inline def tan(a: scala.Double): scala.Double =
     cmath.tan(a)
 
@@ -286,10 +232,6 @@ object Math {
     cmath.tanh(a)
 
   @inline def toDegrees(a: scala.Double): scala.Double = a * 180.0 / PI
-
-  def toIntExact(a: scala.Long): scala.Int =
-    if (a >= Integer.MIN_VALUE && a <= Integer.MAX_VALUE) a.toInt
-    else throw new ArithmeticException("Integer overflow")
 
   @inline def toRadians(a: scala.Double): scala.Double = a / 180.0 * PI
 
@@ -316,4 +258,51 @@ object Math {
       cmath.nextafter(d, scala.Double.MaxValue) - d
     }
   }
+
+  // TODO:
+  // @inline def addExact(a: scala.Int, b: scala.Int): scala.Int = {
+  //   val overflow = `llvm.sadd.with.overflow.i32`(a, b)
+  //   if (overflow.flag) throw new ArithmeticException("Integer overflow")
+  //   else overflow.value
+  // }
+  // @inline def addExact(a: scala.Long, b: scala.Long): scala.Long = {
+  //   val overflow = `llvm.sadd.with.overflow.i64`(a, b)
+  //   if (overflow.flag) throw new ArithmeticException("Long overflow")
+  //   else overflow.value
+  // }
+  // @inline def decrementExact(a: scala.Int): scala.Int =
+  //   subtractExact(a, 1)
+  // @inline def decrementExact(a: scala.Long): scala.Long =
+  //   subtractExact(a, 1L)
+  // @inline def incrementExact(a: scala.Int): scala.Int =
+  //   addExact(a, 1)
+  // @inline def incrementExact(a: scala.Long): scala.Long =
+  //   addExact(a, 1L)
+  // @inline def multiplyExact(a: scala.Int, b: scala.Int): scala.Int = {
+  //   val overflow = `llvm.smul.with.overflow.i32`(a, b)
+  //   if (overflow.flag) throw new ArithmeticException("Integer overflow")
+  //   else overflow.value
+  // }
+  // @inline def multiplyExact(a: scala.Long, b: scala.Long): scala.Long = {
+  //   val overflow = `llvm.smul.with.overflow.i64`(a, b)
+  //   if (overflow.flag) throw new ArithmeticException("Long overflow")
+  //   else overflow.value
+  // }
+  // @inline def negateExact(a: scala.Int): scala.Int =
+  //   subtractExact(0, a)
+  // @inline def negateExact(a: scala.Long): scala.Long =
+  //   subtractExact(0, a)
+  // @inline def subtractExact(a: scala.Int, b: scala.Int): scala.Int = {
+  //   val overflow = `llvm.ssub.with.overflow.i32`(a, b)
+  //   if (overflow.flag) throw new ArithmeticException("Integer overflow")
+  //   else overflow.value
+  // }
+  // @inline def subtractExact(a: scala.Long, b: scala.Long): scala.Long = {
+  //   val overflow = `llvm.ssub.with.overflow.i64`(a, b)
+  //   if (overflow.flag) throw new ArithmeticException("Long overflow")
+  //   else overflow.value
+  // }
+  // def toIntExact(a: scala.Long): scala.Int =
+  //   if (a >= Integer.MIN_VALUE && a <= Integer.MAX_VALUE) a.toInt
+  //   else throw new ArithmeticException("Integer overflow")
 }
