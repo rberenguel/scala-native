@@ -3,7 +3,7 @@ package optimizer
 package pass
 
 import util.{unreachable, ScopedVar}, ScopedVar.scoped
-import analysis.ClassHierarchy.Top
+import linker.World._
 import nir._, Inst.Let
 
 /** Eliminates returns of Unit values and replaces them with void. */

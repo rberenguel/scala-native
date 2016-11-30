@@ -2,8 +2,7 @@ package scala.scalanative
 package optimizer
 package pass
 
-import analysis.ClassHierarchy._
-import analysis.ClassHierarchyExtractors._
+import linker.World._
 import nir._
 
 /** Generates type instances for all classes, modules, traits and structs. */

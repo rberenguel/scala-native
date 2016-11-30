@@ -3,7 +3,7 @@ package optimizer
 package pass
 
 import nir._
-import analysis.ClassHierarchy.Top
+import linker.World.Top
 import tools.Config
 
 /** Translates Box/Unbox ops into static method calls. */

@@ -2,7 +2,7 @@ package scala.scalanative
 package optimizer
 package pass
 
-import analysis.ClassHierarchy.Top
+import linker.World._
 import nir._, Inst.Let
 
 /** Translates high-level casts to corresponding low-level instructions. */

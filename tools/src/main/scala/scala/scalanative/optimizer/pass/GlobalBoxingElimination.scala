@@ -4,7 +4,7 @@ package pass
 
 import scala.collection.mutable
 import nir._, Inst.Let
-import analysis.ClassHierarchy.Top
+import linker.World._
 import analysis.DominatorTree
 import analysis.ControlFlow
 

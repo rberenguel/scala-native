@@ -4,9 +4,9 @@ package pass
 
 import scala.collection.mutable
 import scala.annotation.tailrec
-import analysis.ClassHierarchy.Top
 import util.ScopedVar, ScopedVar.scoped
 import nir._, Inst.Let
+import linker.World._
 
 /** Propagates all copies down the use chain.
  *

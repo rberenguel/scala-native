@@ -2,8 +2,7 @@ package scala.scalanative
 package optimizer
 package pass
 
-import analysis.ClassHierarchy._
-import analysis.ClassHierarchyExtractors._
+import linker.World._
 import nir._, Inst.Let
 
 /** Translates high-level object-oriented method calls into

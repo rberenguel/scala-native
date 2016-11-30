@@ -17,17 +17,22 @@ sealed trait Linker {
 object Linker {
 
   /** Create a new linker given tools configuration. */
-  def apply(config: tools.Config,
-            reporter: Reporter = Reporter.empty): Linker =
-    new Impl(config, reporter)
+  def apply(paths: Seq[Path],
+            injects: Seq[Injects],
+            depends: Seq[Depends],
+            reporter: Reporter): Linker =
+    new Impl(paths, injects, depends, reporter)
 
-  private final class Impl(config: tools.Config, reporter: Reporter)
+  private final class Impl(paths: Seq[Path],
+                           injects: Seq[Injects],
+                           depends: Seq[Depends],
+                           reporter: Reporter)
       extends Linker {
     import reporter._
 
     private def load(
         global: Global): Option[(Seq[Dep], Seq[Attr.Link], Defn)] =
-      config.paths.collectFirst {
+      paths.collectFirst {
         case path if path.contains(global) =>
           path.load(global)
       }.flatten
@@ -88,9 +93,11 @@ object Linker {
         conditional = rest
       }
 
+      val allEntries = entries ++ depends.flatMap(_.depends)
+
       onStart()
 
-      entries.foreach { entry =>
+      allEntries.foreach { entry =>
         direct.push(entry)
         onEntry(entry)
       }
@@ -102,7 +109,10 @@ object Linker {
 
       onComplete()
 
-      (unresolved.toSeq, links.toSeq, defns.sortBy(_.name.toString).toSeq)
+      val injected    = injects.flatMap(_.injects)
+      val resultDefns = (defns ++ injected).sortBy(_.name.toString).toSeq
+
+      (unresolved.toSeq, links.toSeq, resultDefns)
     }
   }
 }

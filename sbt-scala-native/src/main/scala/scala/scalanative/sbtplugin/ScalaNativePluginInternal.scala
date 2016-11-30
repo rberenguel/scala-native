@@ -190,16 +190,12 @@ object ScalaNativePluginInternal {
     nativeExternalDependencies := ResourceScope { implicit scope =>
       import nir.Shows._
 
-      val forceCompile = compileTask.value
+      val doCompile = compileTask.value
+      val directory = VirtualDirectory.real(classDirectory.value)
+      val paths     = Seq(linker.Path(directory))
+      val entries   = paths.flatMap(_.globals)
 
-      val classes = classDirectory.value
-      val progDir = VirtualDirectory.real(classes)
-      val prog    = linker.Path(progDir)
-
-      val config =
-        tools.Config.empty.withPaths(Seq(prog)).withTargetDirectory(progDir)
-
-      val (unresolved, _, _) = (linker.Linker(config)).link(prog.globals.toSeq)
+      val (unresolved, _, _) = tools.link(paths, entries)
 
       unresolved.map(u => sh"$u".toString).sorted
     }

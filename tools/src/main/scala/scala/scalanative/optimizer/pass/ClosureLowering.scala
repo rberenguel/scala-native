@@ -3,9 +3,9 @@ package optimizer
 package pass
 
 import scala.collection.mutable
-import analysis.ClassHierarchy.Top
 import util.unsupported
 import nir._
+import linker.World._
 
 /** Translates high-level closures to corresponding class allocation. */
 class ClosureLowering extends Pass {

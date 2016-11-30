@@ -3,8 +3,7 @@ package optimizer
 package pass
 
 import scala.collection.mutable
-import analysis.ClassHierarchy._
-import analysis.ClassHierarchyExtractors._
+import linker.World._
 import util.ScopedVar, ScopedVar.scoped
 import nir._
 

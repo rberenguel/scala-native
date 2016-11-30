@@ -2,6 +2,7 @@ package scala.scalanative
 
 import java.nio.file.Paths
 import scalanative.io.withScratchBuffer
+import scalanative.nir.Global
 
 // API use-cases
 //
@@ -27,6 +28,8 @@ package object tools {
   type LinkerReporter = linker.Reporter
   val LinkerReporter = linker.Reporter
 
+  type LinkerResult = (Seq[nir.Global], Seq[nir.Attr.Link], Seq[nir.Defn])
+
   type OptimizerDriver = optimizer.Driver
   val OptimizerDriver = optimizer.Driver
 
@@ -36,17 +39,19 @@ package object tools {
   /** Given the classpath and entry point, link under closed-world assumption. */
   def link(config: Config,
            driver: OptimizerDriver,
-           reporter: LinkerReporter = LinkerReporter.empty)
-    : (Seq[nir.Global], Seq[nir.Attr.Link], Seq[nir.Defn]) = {
-    val deps    = driver.passes.flatMap(_.depends).distinct
-    val injects = driver.passes.flatMap(_.injects).distinct
-    val entry =
-      nir.Global.Member(config.entry, "main_class.ssnr.ObjectArray_unit")
-    val (unresolved, links, defns) =
-      (linker.Linker(config, reporter)).link(entry +: deps)
+           reporter: LinkerReporter): LinkerResult = {
+    val paths      = config.paths
+    val injectors  = driver.passes
+    val companions = driver.passes
+    val entries =
+      Seq(nir.Global.Member(config.entry, "main_class.ssnr.ObjectArray_unit"))
 
-    (unresolved, links, defns ++ injects)
+    linker.Linker(paths, injectors, companions, reporter).link(entries)
   }
+
+  /** Link without main entry point. */
+  def link(paths: Seq[LinkerPath], entries: Seq[Global]): LinkerResult =
+    linker.Linker(paths, Seq(), Seq(), LinkerReporter.empty).link(entries)
 
   /** Transform high-level closed world to its lower-level counterpart. */
   def optimize(

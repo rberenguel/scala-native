@@ -2,8 +2,7 @@ package scala.scalanative
 package optimizer
 package pass
 
-import analysis.ClassHierarchy._
-import analysis.ClassHierarchyExtractors._
+import linker.World._
 import util.{sh, unsupported}
 import nir._, Inst.Let, Shows._
 

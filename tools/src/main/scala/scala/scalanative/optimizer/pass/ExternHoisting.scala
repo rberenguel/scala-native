@@ -2,8 +2,7 @@ package scala.scalanative
 package optimizer
 package pass
 
-import analysis.ClassHierarchy._
-import analysis.ClassHierarchyExtractors._
+import linker.World._
 import nir._
 
 /** Hoists external members from external modules to top-level scope. */
@@ -26,7 +25,7 @@ class ExternHoisting(implicit top: Top) extends Pass {
   }
 
   override def preVal = {
-    case Val.Global(n @ Ref(node), ty) if node.attrs.isExtern =>
+    case Val.Global(n @ NodeRef(node), ty) if node.attrs.isExtern =>
       Val.Global(stripName(n), ty)
   }
 }

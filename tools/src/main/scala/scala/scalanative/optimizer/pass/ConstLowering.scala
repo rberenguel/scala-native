@@ -3,8 +3,8 @@ package optimizer
 package pass
 
 import scala.collection.mutable
-import analysis.ClassHierarchy.Top
 import nir._
+import linker.World._
 
 /** Maps const values to top-level deduplicated constants.
  */

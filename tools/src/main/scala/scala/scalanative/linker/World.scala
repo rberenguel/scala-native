@@ -1,12 +1,19 @@
 package scala.scalanative
-package optimizer
-package analysis
+package linker
 
 import scala.collection.mutable
 import util.{sh, unreachable}
 import nir._, Shows._
 
-object ClassHierarchy {
+object World {
+  sealed abstract class Ref[T] {
+    def unapply(ty: nir.Type)(implicit top: Top): Option[T] = ty match {
+      case ty: Type.Named => unapply(ty.name)
+      case _              => None
+    }
+    def unapply(name: Global)(implicit top: Top): Option[T]
+  }
+
   sealed abstract class Node {
     var id: Int   = -1
     var in: Scope = _
@@ -16,6 +23,11 @@ object ClassHierarchy {
     def inTrait: Boolean = in.isInstanceOf[Trait]
     def attrs: Attrs
     def name: Global
+  }
+
+  object NodeRef extends Ref[Node] {
+    def unapply(name: Global)(implicit top: Top): Option[Node] =
+      top.nodes.get(name)
   }
 
   sealed abstract class Scope extends Node {
@@ -28,10 +40,24 @@ object ClassHierarchy {
       members.collect { case fld: Field => fld }
   }
 
+  object ScopeRef extends Ref[Scope] {
+    def unapply(name: Global)(implicit top: Top): Option[Scope] =
+      top.nodes.get(name).collect {
+        case node: Scope => node
+      }
+  }
+
   final class Struct(val attrs: Attrs,
                      val name: Global,
                      val tys: Seq[nir.Type])
       extends Scope
+
+  object StructRef extends Ref[Struct] {
+    def unapply(name: Global)(implicit top: Top): Option[Struct] =
+      top.nodes.get(name).collect {
+        case node: Struct => node
+      }
+  }
 
   final class Trait(val attrs: Attrs,
                     val name: Global,
@@ -47,6 +73,13 @@ object ClassHierarchy {
         alltraits.init.map(_.allmethods).foldLeft(Seq.empty[Method])(_ ++ _)
       parent ++ methods
     }
+  }
+
+  object TraitRef extends Ref[Trait] {
+    def unapply(name: Global)(implicit top: Top): Option[Trait] =
+      top.nodes.get(name).collect {
+        case node: Trait => node
+      }
   }
 
   final class Class(val attrs: Attrs,
@@ -146,6 +179,13 @@ object ClassHierarchy {
     }
   }
 
+  object ClassRef extends Ref[Class] {
+    def unapply(name: Global)(implicit top: Top): Option[Class] =
+      top.nodes.get(name).collect {
+        case node: Class => node
+      }
+  }
+
   final class Method(val attrs: Attrs,
                      val name: Global,
                      val ty: nir.Type,
@@ -192,12 +232,26 @@ object ClassHierarchy {
     }
   }
 
+  object MethodRef extends Ref[(Scope, Method)] {
+    def unapply(name: Global)(implicit top: Top): Option[(Scope, Method)] =
+      top.nodes.get(name).collect {
+        case node: Method => (node.in, node)
+      }
+  }
+
   final class Field(val attrs: Attrs, val name: Global, val ty: nir.Type)
       extends Node {
     def index = {
       assert(inClass)
       in.asInstanceOf[Class].allfields.indexOf(this)
     }
+  }
+
+  object FieldRef extends Ref[(Scope, Field)] {
+    def unapply(name: Global)(implicit top: Top): Option[(Scope, Field)] =
+      top.nodes.get(name).collect {
+        case node: Field => (node.in, node)
+      }
   }
 
   final class Top(val nodes: mutable.Map[Global, Node],
@@ -388,4 +442,5 @@ object ClassHierarchy {
 
     top
   }
+
 }

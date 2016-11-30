@@ -3,8 +3,7 @@ package optimizer
 package analysis
 
 import scala.collection.mutable
-import ClassHierarchy.Top
-import ClassHierarchyExtractors._
+import linker.World._
 import nir._
 import util.unreachable
 
@@ -37,9 +36,9 @@ object UseDef {
   }
 
   private def isPure(inst: Inst)(implicit top: Top) = inst match {
-    case Inst.Let(_, Op.Call(_, Val.Global(Ref(node), _), _)) =>
+    case Inst.Let(_, Op.Call(_, Val.Global(NodeRef(node), _), _)) =>
       node.attrs.isPure
-    case Inst.Let(_, Op.Module(Ref(node))) =>
+    case Inst.Let(_, Op.Module(NodeRef(node))) =>
       node.attrs.isPure
     case Inst.Let(_, _: Op.Pure) =>
       true

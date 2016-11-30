@@ -4,8 +4,7 @@ package pass
 
 import scala.collection.mutable
 import scala.util.control.Breaks._
-import analysis.ClassHierarchy._
-import analysis.ClassHierarchyExtractors._
+import linker.World._
 import util.unsupported
 import nir._, Inst.Let
 

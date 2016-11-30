@@ -4,7 +4,7 @@ package pass
 
 import scala.collection.mutable
 import scala.util.control.Breaks._
-import analysis.ClassHierarchy.Top
+import linker.World._
 import util.unsupported
 import nir._
 

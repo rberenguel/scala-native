@@ -15,7 +15,7 @@ object Optimizer {
             reporter: Reporter): Seq[Defn] = {
     import reporter._
 
-    val world  = analysis.ClassHierarchy(assembly)
+    val world  = linker.World(assembly)
     val passes = driver.passes.map(_.apply(config, world))
 
     def loop(assembly: Seq[Defn], passes: Seq[(Pass, Int)]): Seq[Defn] =
