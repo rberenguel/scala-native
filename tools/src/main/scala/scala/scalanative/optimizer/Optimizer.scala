@@ -16,34 +16,18 @@ object Optimizer {
             reporter: Reporter): Unit = {
     import reporter._
 
-    val passes = driver.passes.map(_.apply(config, world)).zipWithIndex
+    val passes = driver.passes.map(_.apply(config, world))
 
-    def transform(node: World.Node, passes: Seq[(Pass, Int)]): Unit =
-      passes match {
-        case Seq() =>
-          ()
-
-        case (pass.EmptyPass, _) +: rest =>
-          transform(node, rest)
-
-        case (pass, id) +: rest =>
-          pass(node)
-          onPass(node, pass)
-          transform(node, rest)
+    def transform(node: World.Node) = {
+      onStart(node)
+      passes.foreach { pass =>
+        pass(node)
+        onPass(node, pass)
       }
-
-    world.methods.foreach { method =>
-      if (method.insts.nonEmpty) {
-        onStart(method)
-        transform(method, passes)
-        onComplete(method)
-      }
+      onComplete(node)
     }
 
-    world.fields.foreach { field =>
-      onStart(field)
-      transform(field, passes)
-      onComplete(field)
-    }
+    world.methods.foreach(transform)
+    world.fields.foreach(transform)
   }
 }

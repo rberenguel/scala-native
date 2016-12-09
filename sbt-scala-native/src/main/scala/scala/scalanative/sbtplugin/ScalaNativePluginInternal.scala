@@ -89,6 +89,15 @@ object ScalaNativePluginInternal {
     throw new MessageOnlyException("unable to link")
   }
 
+  private def timeInfo[T](logger: Logger, label: String)(f: => T): T = {
+    import java.lang.System.nanoTime
+    val start = nanoTime()
+    val res   = f
+    val end   = nanoTime()
+    logger.info(s"$label (${(end - start) / 1000000.0} ms)")
+    res
+  }
+
   /** Compiles application nir to llvm ir. */
   private def compileNir(
       config: tools.Config,
@@ -96,14 +105,22 @@ object ScalaNativePluginInternal {
       linkerReporter: tools.LinkerReporter,
       optimizerReporter: tools.OptimizerReporter): Seq[nir.Attr.Link] = {
     val driver = tools.OptimizerDriver(config)
-    val world  = tools.link(config, driver, linkerReporter)
+
+    val world = timeInfo(logger, "linking") {
+      tools.link(config, driver, linkerReporter)
+    }
 
     if (world.unresolved.nonEmpty) {
       reportLinkingErrors(world.unresolved.toSeq, logger)
     }
 
-    tools.optimize(config, driver, world, optimizerReporter)
-    tools.codegen(config, world)
+    timeInfo(logger, "optimizing") {
+      tools.optimize(config, driver, world, optimizerReporter)
+    }
+
+    timeInfo(logger, "generating llvm") {
+      tools.codegen(config, world)
+    }
 
     world.links.toSeq
   }

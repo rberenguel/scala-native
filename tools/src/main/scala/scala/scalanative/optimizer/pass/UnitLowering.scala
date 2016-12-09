@@ -3,7 +3,7 @@ package optimizer
 package pass
 
 import util.{unreachable, ScopedVar}, ScopedVar.scoped
-import linker.World._
+import linker.World
 import nir._, Inst.Let
 
 /** Eliminates returns of Unit values and replaces them with void. */
@@ -12,10 +12,13 @@ class UnitLowering(implicit fresh: Fresh) extends Pass {
 
   private var defnRetty: Type = _
 
-  override def preMethod = {
-    case (retty, insts) =>
+  override def onNode(node: World.Node): Unit = node match {
+    case node: World.Method =>
+      val Type.Function(_, retty) = node.ty
       defnRetty = retty
-      insts
+
+    case _ =>
+      ()
   }
 
   override def preInst = {
@@ -49,6 +52,6 @@ object UnitLowering extends PassCompanion {
   override val depend =
     Seq(unitName)
 
-  override def apply(config: tools.Config, top: Top) =
+  override def apply(config: tools.Config, top: World.Top) =
     new UnitLowering()(top.fresh)
 }

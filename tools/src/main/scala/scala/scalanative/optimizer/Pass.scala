@@ -13,6 +13,8 @@ trait Pass {
   type OnVal   = PartialFunction[Val, Val]
   type OnType  = PartialFunction[Type, Type]
 
+  def onNode(node: World.Node): Unit = ()
+
   def preInsts: OnInsts  = null
   def postInsts: OnInsts = null
   def preInst: OnInst    = null
@@ -29,9 +31,26 @@ trait Pass {
                                  default: B): B =
     if (pf == null) default else pf.applyOrElse(arg, (_: A) => default)
 
+  private def txNode(node: World.Node) = node match {
+    case node: World.Method =>
+      onNode(node)
+      node.ty = txType(node.ty)
+      if (node.insts.nonEmpty) {
+        node.insts = txInsts(node.insts)
+      }
+
+    case node: World.Field =>
+      onNode(node)
+      node.ty = txType(node.ty)
+      node.rhs = txVal(node.rhs)
+
+    case _ =>
+      util.unreachable
+  }
+
   private def txInsts(insts: Seq[Inst]): Seq[Inst] = {
     val pre = hook(preInsts, insts, insts)
-    val tx  = insts.flatMap(txInst)
+    val tx  = pre.flatMap(txInst)
     hook(postInsts, tx, tx)
   }
 
@@ -166,21 +185,10 @@ trait Pass {
     hook(postNext, post, post)
   }
 
-  final def apply(inst: Inst): Seq[Inst] = txInst(inst)
-  final def apply(next: Next): Next      = txNext(next)
-  final def apply(value: Val): Val       = txVal(value)
-  final def apply(ty: Type): Type        = txType(ty)
+  final def apply(node: World.Node): Unit = txNode(node)
+  final def apply(inst: Inst): Seq[Inst]  = txInst(inst)
+  final def apply(next: Next): Next       = txNext(next)
+  final def apply(value: Val): Val        = txVal(value)
+  final def apply(ty: Type): Type         = txType(ty)
 
-  final def apply(node: World.Node): Unit = node match {
-    case node: World.Method =>
-      node.ty = txType(node.ty)
-      node.insts = txInsts(node.insts)
-
-    case node: World.Field =>
-      node.ty = txType(node.ty)
-      node.rhs = txVal(node.rhs)
-
-    case _ =>
-      util.unreachable
-  }
 }

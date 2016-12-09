@@ -22,8 +22,7 @@ object Linker {
     Seq(inject.ClassLayout,
         inject.MainMethod,
         inject.ModuleAccessor,
-        inject.RuntimeTypeInformation,
-        inject.TraitTables)
+        inject.RuntimeTypeInformation)
 
   /** Create a new linker given tools configuration. */
   def apply(config: tools.Config,
@@ -47,17 +46,17 @@ object Linker {
       }.flatten
 
     def link(entries: Seq[Global]): Top = {
-      val top         = new Top(config.main)
       val direct      = mutable.Stack.empty[Global]
       var conditional = mutable.UnrolledBuffer.empty[Dep.Conditional]
-
-      import top._
+	  val resolved    = mutable.Map.empty[Global, Defn]
+	  val unresolved  = mutable.Set.empty[Global]
+      val links       = mutable.Set.empty[Attr.Link]
 
       def processDirect =
         while (direct.nonEmpty) {
           val workitem = direct.pop()
 
-          if (!workitem.isIntrinsic && !nodes.contains(workitem) &&
+          if (!workitem.isIntrinsic && !resolved.contains(workitem) &&
               !unresolved.contains(workitem)) {
 
             load(workitem).fold[Unit] {
@@ -66,7 +65,7 @@ object Linker {
               onUnresolved(workitem)
             } {
               case (deps, newlinks, defn) =>
-                enter(defn)
+			    resolved(workitem) = defn
                 links ++= newlinks
 
                 deps.foreach {
@@ -89,10 +88,10 @@ object Linker {
 
         conditional.foreach {
           case Dep.Conditional(dep, cond)
-              if nodes.contains(dep) || unresolved.contains(dep) =>
+              if resolved.contains(dep) || unresolved.contains(dep) =>
             ()
 
-          case Dep.Conditional(dep, cond) if nodes.contains(cond) =>
+          case Dep.Conditional(dep, cond) if resolved.contains(cond) =>
             direct.push(dep)
 
           case dep =>
@@ -103,8 +102,6 @@ object Linker {
       }
 
       val allEntries = entries ++ depends.flatMap(_.depend)
-
-      println(s"linking $allEntries")
 
       onStart()
 
@@ -118,8 +115,11 @@ object Linker {
         processConditional
       }
 
+      val top = new Top(config.main)
+	  resolved.valuesIterator.foreach(top.enter(_))
       injects.foreach(_.inject(top))
       top.finish()
+
       onComplete()
 
       top
