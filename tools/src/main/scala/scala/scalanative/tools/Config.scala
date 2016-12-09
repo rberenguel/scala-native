@@ -6,8 +6,8 @@ import nir.Global
 
 sealed trait Config {
 
-  /** Entry point for linking. */
-  def entry: Global
+  /** Main point for linking. */
+  def main: Option[Global]
 
   /** Sequence of all NIR locations. */
   def paths: Seq[LinkerPath]
@@ -15,46 +15,35 @@ sealed trait Config {
   /** Directory to emit intermediate compilation results. */
   def targetDirectory: VirtualDirectory
 
-  /** Should a main method be injected? */
-  def injectMain: Boolean
-
-  /** Create new config with given entry point. */
-  def withEntry(value: Global): Config
+  /** Create new config with given main point. */
+  def withMain(value: Option[Global]): Config
 
   /** Create a new config with given nir paths. */
   def withPaths(value: Seq[LinkerPath]): Config
 
   /** Create a new config with given directory. */
   def withTargetDirectory(value: VirtualDirectory): Config
-
-  /** Create a new config with given inject main flag. */
-  def withInjectMain(value: Boolean): Config
 }
 
 object Config {
 
   /** Default empty config object. */
   val empty: Config =
-    Impl(entry = Global.None,
+    Impl(main = None,
          paths = Seq.empty,
-         targetDirectory = VirtualDirectory.empty,
-         injectMain = true)
+         targetDirectory = VirtualDirectory.empty)
 
-  private final case class Impl(entry: Global,
+  private final case class Impl(main: Option[Global],
                                 paths: Seq[LinkerPath],
-                                targetDirectory: VirtualDirectory,
-                                injectMain: Boolean)
+                                targetDirectory: VirtualDirectory)
       extends Config {
-    def withEntry(value: Global): Config =
-      copy(entry = value)
+    def withMain(value: Option[Global]): Config =
+      copy(main = value)
 
     def withPaths(value: Seq[LinkerPath]): Config =
       copy(paths = value)
 
     def withTargetDirectory(value: VirtualDirectory): Config =
       copy(targetDirectory = value)
-
-    def withInjectMain(value: Boolean): Config =
-      copy(injectMain = value)
   }
 }

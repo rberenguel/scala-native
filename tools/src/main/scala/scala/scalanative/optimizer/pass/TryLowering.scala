@@ -10,8 +10,8 @@ import nir._
 
 /** Lowers try-catch with nested function calls into LLVM-style invokes. */
 class TryLowering(implicit fresh: Fresh) extends Pass {
-  override def preDefn = {
-    case defn @ Defn.Define(_, _, _, insts) =>
+  override def preInsts = {
+    case insts =>
       val cfg      = ControlFlow.Graph(insts)
       val eh       = cfg.eh
       val newinsts = mutable.UnrolledBuffer.empty[Inst]
@@ -41,7 +41,7 @@ class TryLowering(implicit fresh: Fresh) extends Pass {
         }
       }
 
-      Seq(defn.copy(insts = newinsts))
+      newinsts
   }
 }
 

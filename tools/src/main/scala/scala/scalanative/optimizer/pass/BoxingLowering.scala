@@ -50,7 +50,7 @@ object BoxingLowering extends PassCompanion {
   override def apply(config: Config, top: Top) =
     new BoxingLowering()(top.fresh)
 
-  override def depends: Seq[Global] =
+  override def depend: Seq[Global] =
     Seq(BoxesRunTime, RuntimeBoxes) ++
       BoxTo.values.map { case (owner, id) => Global.Member(owner, id) } ++
       UnboxTo.values.map { case (owner, id) => Global.Member(owner, id) }

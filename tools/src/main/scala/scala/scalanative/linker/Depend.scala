@@ -1,10 +1,10 @@
 package scala.scalanative
 package linker
 
-trait Depends {
+trait Depend {
 
   /** A sequence of extra globals that should be loaded
    *  during linking of the assembly.
    */
-  def depends: Seq[nir.Global] = Seq()
+  def depend: Seq[nir.Global] = Seq()
 }

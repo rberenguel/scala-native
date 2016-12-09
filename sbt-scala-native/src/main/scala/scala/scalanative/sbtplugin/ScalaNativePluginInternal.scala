@@ -95,15 +95,17 @@ object ScalaNativePluginInternal {
       logger: Logger,
       linkerReporter: tools.LinkerReporter,
       optimizerReporter: tools.OptimizerReporter): Seq[nir.Attr.Link] = {
-    val driver                   = tools.OptimizerDriver(config)
-    val (unresolved, links, raw) = tools.link(config, driver, linkerReporter)
+    val driver = tools.OptimizerDriver(config)
+    val world  = tools.link(config, driver, linkerReporter)
 
-    if (unresolved.nonEmpty) { reportLinkingErrors(unresolved, logger) }
+    if (world.unresolved.nonEmpty) {
+      reportLinkingErrors(world.unresolved.toSeq, logger)
+    }
 
-    val optimized = tools.optimize(config, driver, raw, optimizerReporter)
-    tools.codegen(config, optimized)
+    tools.optimize(config, driver, world, optimizerReporter)
+    tools.codegen(config, world)
 
-    links
+    world.links.toSeq
   }
 
   private def running(command: Seq[String]): String =
@@ -194,10 +196,9 @@ object ScalaNativePluginInternal {
       val directory = VirtualDirectory.real(classDirectory.value)
       val paths     = Seq(linker.Path(directory))
       val entries   = paths.flatMap(_.globals)
+      val world     = tools.link(paths, entries)
 
-      val (unresolved, _, _) = tools.link(paths, entries)
-
-      unresolved.map(u => sh"$u".toString).sorted
+      world.unresolved.toSeq.map(u => sh"$u".toString).sorted
     }
 
   lazy val projectSettings =
@@ -241,10 +242,16 @@ object ScalaNativePluginInternal {
       val clang     = nativeClang.value
       checkThatClangIsRecentEnough(clang)
 
-      val mainClass = (selectMainClass in Compile).value.getOrElse(
-        throw new MessageOnlyException("No main class detected.")
-      )
-      val entry     = nir.Global.Top(mainClass.toString + "$")
+      val main = {
+        if (nativeSharedLibrary.value) {
+          val mainClass = (selectMainClass in Compile).value.getOrElse(
+            throw new MessageOnlyException("No main class detected.")
+          )
+          Some(nir.Global.Top(mainClass.toString + "$"))
+        } else {
+          None
+        }
+      }
       val classpath = (fullClasspath in Compile).value.map(_.data)
       val target    = (crossTarget in Compile).value
       val appll     = target / "out.ll"
@@ -257,11 +264,10 @@ object ScalaNativePluginInternal {
       val logger            = streams.value.log
 
       val config = tools.Config.empty
-        .withEntry(entry)
+        .withMain(main)
         .withPaths(classpath.map(p =>
           tools.LinkerPath(VirtualDirectory.real(p))))
         .withTargetDirectory(VirtualDirectory.real(target))
-        .withInjectMain(!nativeSharedLibrary.value)
 
       val nirFiles   = (Keys.target.value ** "*.nir").get.toSet
       val configFile = (streams.value.cacheDirectory / "native-config")

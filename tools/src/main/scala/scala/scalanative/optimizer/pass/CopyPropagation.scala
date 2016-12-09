@@ -36,10 +36,10 @@ class CopyPropagation extends Pass {
     copies
   }
 
-  override def preDefn = {
-    case defn: Defn.Define =>
-      locals = collect(defn.insts)
-      Seq(defn)
+  override def preInsts = {
+    case insts =>
+      locals = collect(insts)
+      insts
   }
 
   override def preInst = {

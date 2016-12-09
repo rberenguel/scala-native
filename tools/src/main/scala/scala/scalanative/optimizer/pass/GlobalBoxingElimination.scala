@@ -16,12 +16,12 @@ import analysis.ControlFlow
 class GlobalBoxingElimination extends Pass {
   import GlobalBoxingElimination._
 
-  override def preDefn = {
-    case defn: Defn.Define =>
+  override def preInsts = {
+    case insts =>
       val records = mutable.UnrolledBuffer.empty[Record]
 
       // Setup the dominator tree checks
-      val cfg             = ControlFlow.Graph(defn.insts)
+      val cfg             = ControlFlow.Graph(insts)
       val blockDomination = DominatorTree.build(cfg)
 
       val localToBlock =
@@ -49,7 +49,7 @@ class GlobalBoxingElimination extends Pass {
       }
 
       // Original box elimination code
-      val newinsts = defn.insts.map {
+      val newinsts = insts.map {
         case inst @ Let(to, op @ Op.Box(ty, from)) =>
           records.collectFirst {
             // if a box for given value already exists, re-use the box
@@ -88,7 +88,7 @@ class GlobalBoxingElimination extends Pass {
           inst
       }
 
-      Seq(defn.copy(insts = newinsts))
+      newinsts
   }
 }
 

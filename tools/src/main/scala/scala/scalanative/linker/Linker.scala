@@ -7,60 +7,67 @@ import nir._
 import nir.serialization._
 import nir.Shows._
 import util.Scope
+import World._
 
 sealed trait Linker {
 
   /** Link the whole world under closed world assumption. */
-  def link(entries: Seq[Global]): (Seq[Global], Seq[Attr.Link], Seq[Defn])
+  def link(entries: Seq[Global]): Top
 }
 
 object Linker {
 
-  /** Create a new linker given tools configuration. */
-  def apply(paths: Seq[Path],
-            injects: Seq[Injects],
-            depends: Seq[Depends],
-            reporter: Reporter): Linker =
-    new Impl(paths, injects, depends, reporter)
+  /** Sequence of default linker injections. */
+  def injects: Seq[Inject] =
+    Seq(inject.ClassLayout,
+        inject.MainMethod,
+        inject.ModuleAccessor,
+        inject.RuntimeTypeInformation,
+        inject.TraitTables)
 
-  private final class Impl(paths: Seq[Path],
-                           injects: Seq[Injects],
-                           depends: Seq[Depends],
+  /** Create a new linker given tools configuration. */
+  def apply(config: tools.Config,
+            injects: Seq[Inject],
+            depends: Seq[Depend],
+            reporter: Reporter): Linker =
+    new Impl(config, injects, depends, reporter)
+
+  private final class Impl(config: tools.Config,
+                           injects: Seq[Inject],
+                           depends: Seq[Depend],
                            reporter: Reporter)
       extends Linker {
     import reporter._
 
     private def load(
         global: Global): Option[(Seq[Dep], Seq[Attr.Link], Defn)] =
-      paths.collectFirst {
+      config.paths.collectFirst {
         case path if path.contains(global) =>
           path.load(global)
       }.flatten
 
-    def link(entries: Seq[Global]): (Seq[Global], Seq[Attr.Link], Seq[Defn]) = {
-      val resolved    = mutable.Set.empty[Global]
-      val unresolved  = mutable.Set.empty[Global]
-      val links       = mutable.Set.empty[Attr.Link]
-      val defns       = mutable.UnrolledBuffer.empty[Defn]
+    def link(entries: Seq[Global]): Top = {
+      val top         = new Top(config.main)
       val direct      = mutable.Stack.empty[Global]
       var conditional = mutable.UnrolledBuffer.empty[Dep.Conditional]
+
+      import top._
 
       def processDirect =
         while (direct.nonEmpty) {
           val workitem = direct.pop()
 
-          if (!workitem.isIntrinsic && !resolved.contains(workitem) &&
+          if (!workitem.isIntrinsic && !nodes.contains(workitem) &&
               !unresolved.contains(workitem)) {
 
             load(workitem).fold[Unit] {
               unresolved += workitem
+
               onUnresolved(workitem)
             } {
               case (deps, newlinks, defn) =>
-                resolved += workitem
-                defns += defn
+                enter(defn)
                 links ++= newlinks
-                onResolved(workitem)
 
                 deps.foreach {
                   case Dep.Direct(dep) =>
@@ -71,6 +78,8 @@ object Linker {
                     conditional += cond
                     onConditionalDependency(workitem, dep, condition)
                 }
+
+                onResolved(workitem)
             }
           }
         }
@@ -80,10 +89,10 @@ object Linker {
 
         conditional.foreach {
           case Dep.Conditional(dep, cond)
-              if resolved.contains(dep) || unresolved.contains(dep) =>
+              if nodes.contains(dep) || unresolved.contains(dep) =>
             ()
 
-          case Dep.Conditional(dep, cond) if resolved.contains(cond) =>
+          case Dep.Conditional(dep, cond) if nodes.contains(cond) =>
             direct.push(dep)
 
           case dep =>
@@ -93,7 +102,9 @@ object Linker {
         conditional = rest
       }
 
-      val allEntries = entries ++ depends.flatMap(_.depends)
+      val allEntries = entries ++ depends.flatMap(_.depend)
+
+      println(s"linking $allEntries")
 
       onStart()
 
@@ -107,12 +118,11 @@ object Linker {
         processConditional
       }
 
+      injects.foreach(_.inject(top))
+      top.finish()
       onComplete()
 
-      val injected    = injects.flatMap(_.injects)
-      val resultDefns = (defns ++ injected).sortBy(_.name.toString).toSeq
-
-      (unresolved.toSeq, links.toSeq, resultDefns)
+      top
     }
   }
 }

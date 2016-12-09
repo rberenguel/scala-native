@@ -12,6 +12,12 @@ class UnitLowering(implicit fresh: Fresh) extends Pass {
 
   private var defnRetty: Type = _
 
+  override def preMethod = {
+    case (retty, insts) =>
+      defnRetty = retty
+      insts
+  }
+
   override def preInst = {
     case inst @ Let(n, op) if op.resty == Type.Unit =>
       Seq(
@@ -21,12 +27,6 @@ class UnitLowering(implicit fresh: Fresh) extends Pass {
 
     case Inst.Ret(_) if defnRetty == Type.Unit =>
       Seq(Inst.Ret(Val.None))
-  }
-
-  override def preDefn = {
-    case defn @ Defn.Define(_, _, Type.Function(_, retty), blocks) =>
-      defnRetty = retty
-      Seq(defn)
   }
 
   override def preVal = {
@@ -43,18 +43,11 @@ class UnitLowering(implicit fresh: Fresh) extends Pass {
 }
 
 object UnitLowering extends PassCompanion {
-  val unitName  = Global.Top("scala.scalanative.runtime.BoxedUnit$")
-  val unit      = Val.Global(unitName, Type.Ptr)
-  val unitTy    = Type.Struct(unitName tag "class", Seq(Type.Ptr))
-  val unitConst = Val.Global(unitName tag "class" tag "type", Type.Ptr)
-  val unitValue = Val.Struct(unitTy.name, Seq(unitConst))
-  val unitDefn  = Defn.Const(Attrs.None, unitName, unitTy, unitValue)
+  val unitName = Global.Top("scala.scalanative.runtime.BoxedUnit$")
+  val unit     = Val.Global(unitName tag "value", Type.Ptr)
 
-  override val depends =
+  override val depend =
     Seq(unitName)
-
-  override val injects =
-    Seq(unitDefn)
 
   override def apply(config: tools.Config, top: Top) =
     new UnitLowering()(top.fresh)

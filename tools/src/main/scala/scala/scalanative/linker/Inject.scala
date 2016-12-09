@@ -1,10 +1,10 @@
 package scala.scalanative
 package linker
 
-trait Injects {
+trait Inject {
 
   /** A sequence of extra definitions that should additionally be
    *  injected into final assembly.
    */
-  def injects: Seq[nir.Defn] = Seq()
+  def inject(top: World.Top): Unit = ()
 }

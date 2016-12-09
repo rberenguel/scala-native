@@ -4,6 +4,7 @@ package codegen
 import java.{lang => jl}
 import java.nio.ByteBuffer
 import scala.collection.mutable
+import linker.World
 import util.{Show, sh, unreachable, unsupported}
 import util.Show.{
   Indent => i,
@@ -25,16 +26,10 @@ sealed trait CodeGen {
 object CodeGen {
 
   /** Create a new code generator for given assembly. */
-  def apply(assembly: Seq[Defn]): CodeGen = new Impl(assembly)
+  def apply(top: World.Top): CodeGen = new Impl(top)
 
-  private final class Impl(assembly: Seq[Defn]) extends CodeGen {
+  private final class Impl(top: linker.World.Top) extends CodeGen {
     private val fresh = new Fresh("gen")
-    private val globals = assembly.collect {
-      case Defn.Var(_, n, ty, _)     => n -> ty
-      case Defn.Const(_, n, ty, _)   => n -> ty
-      case Defn.Declare(_, n, sig)   => n -> sig
-      case Defn.Define(_, n, sig, _) => n -> sig
-    }.toMap
     private val prelude = Seq(
       sh"declare i32 @llvm.eh.typeid.for(i8*)",
       sh"declare i32 @__gxx_personality_v0(...)",
@@ -50,36 +45,53 @@ object CodeGen {
     private val typeid =
       sh"call i32 @llvm.eh.typeid.for(i8* bitcast ({ i8*, i8*, i8* }* @_ZTIN11scalanative16ExceptionWrapperE to i8*))"
 
-    def gen(buffer: java.nio.ByteBuffer) =
-      buffer.put(showDefns(assembly).toString.getBytes)
+    private val structs  = mutable.UnrolledBuffer.empty[Show.Result]
+    private val consts   = mutable.UnrolledBuffer.empty[Show.Result]
+    private val vars     = mutable.UnrolledBuffer.empty[Show.Result]
+    private val declares = mutable.UnrolledBuffer.empty[Show.Result]
+    private val defines  = mutable.UnrolledBuffer.empty[Show.Result]
 
-    implicit val showDefns: Show[Seq[Defn]] = Show { defns =>
-      val sorted = defns.sortBy {
-        case _: Defn.Struct  => 1
-        case _: Defn.Const   => 2
-        case _: Defn.Var     => 3
-        case _: Defn.Declare => 4
-        case _: Defn.Define  => 5
-        case _               => -1
+    private def globals(name: Global): Type =
+      top.nodes(name) match {
+        case node: World.Field  => node.ty
+        case node: World.Method => node.ty
       }
 
-      r(prelude ++: sorted.map(d => sh"$d"), sep = nl(""))
+    def gen(buffer: java.nio.ByteBuffer) = {
+      def put(shows: Seq[Show.Result]): Unit =
+        buffer.put(r(shows, sep = "\n", post = "\n").toString.getBytes)
+
+      genStructs()
+      put(structs)
+
+      genFields()
+      put(consts)
+      put(vars)
+
+      genMethods()
+      put(declares)
+      put(defines)
     }
 
-    implicit val showDefn: Show[Defn] = Show {
-      case Defn.Var(attrs, name, ty, rhs) =>
-        showGlobalDefn(name, attrs.isExtern, isConst = false, ty, rhs)
-      case Defn.Const(attrs, name, ty, rhs) =>
-        showGlobalDefn(name, attrs.isExtern, isConst = true, ty, rhs)
-      case Defn.Declare(attrs, name, sig) =>
-        showFunctionDefn(attrs, name, sig, Seq())
-      case Defn.Define(attrs, name, sig, blocks) =>
-        showFunctionDefn(attrs, name, sig, blocks)
-      case Defn.Struct(attrs, name, tys) =>
-        sh"%$name = type {${r(tys, sep = ", ")}}"
-      case defn =>
-        unsupported(defn)
-    }
+    def genStructs() =
+      top.structs.foreach { struct =>
+        import struct._
+        structs += sh"%$name = type {${r(tys, sep = ", ")}}"
+      }
+
+    def genFields() =
+      top.fields.foreach { field =>
+        import field._
+        val buf = if (isConst) consts else vars
+        buf += showGlobalDefn(name, attrs.isExtern, isConst, ty, rhs)
+      }
+
+    def genMethods() =
+      top.methods.foreach { method =>
+        import method._
+        val buf = if (isConcrete) defines else declares
+        buf += showFunctionDefn(attrs, name, ty, insts)
+      }
 
     def showGlobalDefn(name: nir.Global,
                        isExtern: Boolean,
@@ -213,7 +225,7 @@ object CodeGen {
     implicit val showType: Show[Type] = Show {
       case Type.Void                     => "void"
       case Type.Vararg                   => "..."
-      case Type.Ptr                      => "i8*"
+      case Type.Ptr | _: Type.RefKind    => "i8*"
       case Type.Bool                     => "i1"
       case Type.I8                       => "i8"
       case Type.I16                      => "i16"

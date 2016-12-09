@@ -16,10 +16,10 @@ class AllocLowering(implicit fresh: Fresh, top: Top) extends Pass {
 
   private val stackallocs = mutable.UnrolledBuffer.empty[Inst]
 
-  override def preDefn = {
-    case defn: Defn.Define =>
+  override def preInsts = {
+    case insts =>
       stackallocs.clear
-      Seq(defn)
+      insts
   }
 
   override def preInst = {
@@ -31,17 +31,17 @@ class AllocLowering(implicit fresh: Fresh, top: Top) extends Pass {
       val size = Val.Local(fresh(), Type.I64)
 
       Seq(
-        Let(size.name, Op.Sizeof(cls.classStruct)),
+        Let(size.name, Op.Sizeof(cls.layoutStruct)),
         Let(n, Op.Call(allocSig, alloc, Seq(cls.typeConst, size)))
       )
   }
 
-  override def postDefn = {
-    case defn: Defn.Define =>
-      val label +: rest = defn.insts
+  override def postInsts = {
+    case insts =>
+      val label +: rest = insts
       val newinsts      = label +: (stackallocs ++: rest)
 
-      Seq(defn.copy(insts = newinsts))
+      newinsts
   }
 }
 
@@ -50,8 +50,8 @@ object AllocLowering extends PassCompanion {
   val allocSig  = Type.Function(Seq(Arg(Type.Ptr), Arg(Type.I64)), Type.Ptr)
   val alloc     = Val.Global(allocName, allocSig)
 
-  override val injects =
-    Seq(Defn.Declare(Attrs.None, allocName, allocSig))
+  override def inject(top: Top) =
+    top.enter(Defn.Declare(Attrs.None, allocName, allocSig))
 
   override def apply(config: tools.Config, top: Top) =
     new AllocLowering()(top.fresh, top)

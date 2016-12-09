@@ -1,72 +1,38 @@
 package scala.scalanative
 package optimizer
 
-import linker.World.Top
+import linker.World
 import tools.Config
 import scala.collection.mutable
 import nir._
 
 trait Pass {
-  type OnAssembly = PartialFunction[Seq[Defn], Seq[Defn]]
-  type OnDefn     = PartialFunction[Defn, Seq[Defn]]
-  type OnInst     = PartialFunction[Inst, Seq[Inst]]
-  type OnNext     = PartialFunction[Next, Next]
-  type OnVal      = PartialFunction[Val, Val]
-  type OnType     = PartialFunction[Type, Type]
+  type OnInsts = PartialFunction[Seq[Inst], Seq[Inst]]
+  type OnInst  = PartialFunction[Inst, Seq[Inst]]
+  type OnNext  = PartialFunction[Next, Next]
+  type OnVal   = PartialFunction[Val, Val]
+  type OnType  = PartialFunction[Type, Type]
 
-  def preAssembly: OnAssembly  = null
-  def postAssembly: OnAssembly = null
-  def preDefn: OnDefn          = null
-  def postDefn: OnDefn         = null
-  def preInst: OnInst          = null
-  def postInst: OnInst         = null
-  def preNext: OnNext          = null
-  def postNext: OnNext         = null
-  def preVal: OnVal            = null
-  def postVal: OnVal           = null
-  def preType: OnType          = null
-  def postType: OnType         = null
+  def preInsts: OnInsts  = null
+  def postInsts: OnInsts = null
+  def preInst: OnInst    = null
+  def postInst: OnInst   = null
+  def preNext: OnNext    = null
+  def postNext: OnNext   = null
+  def preVal: OnVal      = null
+  def postVal: OnVal     = null
+  def preType: OnType    = null
+  def postType: OnType   = null
 
   @inline private def hook[A, B](pf: PartialFunction[A, B],
                                  arg: A,
                                  default: B): B =
     if (pf == null) default else pf.applyOrElse(arg, (_: A) => default)
 
-  private def txAssembly(assembly: Seq[Defn]): Seq[Defn] = {
-    val pre = hook(preAssembly, assembly, assembly)
-
-    val post = pre.flatMap { defn =>
-      txDefn(defn)
-    }
-
-    hook(postAssembly, post, post)
-  }
-
-  private def txDefn(defn: Defn): Seq[Defn] = {
-    val pres = hook(preDefn, defn, Seq(defn))
-
-    pres.flatMap { pre =>
-      val post = pre match {
-        case defn @ Defn.Var(_, _, ty, value) =>
-          defn.copy(ty = txType(ty), value = txVal(value))
-        case defn @ Defn.Const(_, _, ty, value) =>
-          defn.copy(ty = txType(ty), value = txVal(value))
-        case defn @ Defn.Declare(_, _, ty) =>
-          defn.copy(ty = txType(ty))
-        case defn @ Defn.Define(_, _, ty, insts) =>
-          defn.copy(ty = txType(ty), insts = insts.flatMap(txInst))
-        case defn @ Defn.Struct(_, _, tys) =>
-          defn.copy(tys = tys.map(txType))
-        case defn @ Defn.Trait(_, _, _) =>
-          defn
-        case defn @ Defn.Class(_, _, _, _) =>
-          defn
-        case defn @ Defn.Module(_, _, _, _) =>
-          defn
-      }
-
-      hook(postDefn, post, Seq(post))
-    }
+  private def txInsts(insts: Seq[Inst]): Seq[Inst] = {
+    val pre = hook(preInsts, insts, insts)
+    val tx  = insts.flatMap(txInst)
+    hook(postInsts, tx, tx)
   }
 
   private def txInst(inst: Inst): Seq[Inst] = {
@@ -200,10 +166,21 @@ trait Pass {
     hook(postNext, post, post)
   }
 
-  final def apply(assembly: Seq[Defn]): Seq[Defn] = txAssembly(assembly)
-  final def apply(defn: Defn): Seq[Defn]          = txDefn(defn)
-  final def apply(inst: Inst): Seq[Inst]          = txInst(inst)
-  final def apply(next: Next): Next               = txNext(next)
-  final def apply(value: Val): Val                = txVal(value)
-  final def apply(ty: Type): Type                 = txType(ty)
+  final def apply(inst: Inst): Seq[Inst] = txInst(inst)
+  final def apply(next: Next): Next      = txNext(next)
+  final def apply(value: Val): Val       = txVal(value)
+  final def apply(ty: Type): Type        = txType(ty)
+
+  final def apply(node: World.Node): Unit = node match {
+    case node: World.Method =>
+      node.ty = txType(node.ty)
+      node.insts = txInsts(node.insts)
+
+    case node: World.Field =>
+      node.ty = txType(node.ty)
+      node.rhs = txVal(node.rhs)
+
+    case _ =>
+      util.unreachable
+  }
 }

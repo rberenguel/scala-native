@@ -15,14 +15,30 @@ object World {
   }
 
   sealed abstract class Node {
+    def attrs: Attrs
+    def name: Global
     var id: Int   = -1
     var in: Scope = _
 
-    def inTop: Boolean   = in.isInstanceOf[Top]
-    def inClass: Boolean = in.isInstanceOf[Class]
-    def inTrait: Boolean = in.isInstanceOf[Trait]
-    def attrs: Attrs
-    def name: Global
+    def isTop: Boolean    = this.isInstanceOf[Top]
+    def isClass: Boolean  = this.isInstanceOf[Class]
+    def isTrait: Boolean  = this.isInstanceOf[Trait]
+    def isMethod: Boolean = this.isInstanceOf[Method]
+    def isField: Boolean  = this.isInstanceOf[Field]
+
+    def typeName: Global = this match {
+      case node: World.Class =>
+        node.name tag "class" tag "type"
+      case node: World.Trait =>
+        node.name tag "trait" tag "type"
+      case node: World.Struct =>
+        node.name tag "struct" tag "type"
+      case _ =>
+        util.unreachable
+    }
+
+    def typeConst: Val =
+      Val.Global(typeName, Type.Ptr)
   }
 
   object NodeRef extends Ref[Node] {
@@ -65,10 +81,10 @@ object World {
       extends Scope {
     var traits: Seq[Trait] = Seq()
 
-    lazy val alltraits: Seq[Trait] =
+    def alltraits: Seq[Trait] =
       traits.flatMap(_.alltraits).distinct :+ this
 
-    lazy val allmethods: Seq[Method] = {
+    def allmethods: Seq[Method] = {
       val parent =
         alltraits.init.map(_.allmethods).foldLeft(Seq.empty[Method])(_ ++ _)
       parent ++ methods
@@ -93,50 +109,43 @@ object World {
     var subclasses: Seq[Class] = Seq()
     var traits: Seq[Trait]     = Seq()
 
-    lazy val ty = Type.Class(name)
+    def ty = Type.Class(name)
 
-    lazy val alltraits: Seq[Trait] = {
+    def alltraits: Seq[Trait] = {
       val base = parent.fold(Seq.empty[Trait])(_.alltraits)
       (base ++ traits.flatMap(_.alltraits)).distinct
     }
 
-    lazy val allfields: Seq[Field] =
+    def allfields: Seq[Field] =
       parent.fold(Seq.empty[Field])(_.allfields) ++ fields
 
-    lazy val allmethods: Seq[Method] =
+    def allmethods: Seq[Method] =
       parent.fold(Seq.empty[Method])(_.allmethods) ++ methods
 
-    lazy val allvslots: Seq[Method] =
+    def allvslots: Seq[Method] =
       parent.fold(Seq.empty[Method])(_.allvslots) ++ vslots
 
-    lazy val vslots: Seq[Method] = members.collect {
+    def vslots: Seq[Method] = members.collect {
       case meth: Method if meth.isVirtual =>
         meth
     }
 
-    lazy val vtableStruct: Type.Struct =
+    def vtableStruct: Type.Struct =
       Type.Struct(Global.None, vtable.map(_.ty))
 
-    lazy val vtableValue: Val.Struct = Val.Struct(Global.None, vtable)
+    def vtableValue: Val.Struct = Val.Struct(Global.None, vtable)
 
-    lazy val typeStruct: Type.Struct =
+    def typeStruct: Type.Struct =
       Type.Struct(Global.None, Seq(Type.I32, Type.Ptr, vtableStruct))
 
-    lazy val typeValue: Val.Struct = Val
-      .Struct(Global.None, Seq(Val.I32(id), Val.String(name.id), vtableValue))
+    def typeValue: Val.Struct =
+      Val.Struct(Global.None,
+                 Seq(Val.I32(id), Val.String(name.id), vtableValue))
 
-    lazy val typeConst: Val = Val.Global(name tag "class" tag "type", Type.Ptr)
+    def layoutStruct: Type.Struct =
+      Type.Struct(name tag "layout", Type.Ptr +: allfields.map(_.ty))
 
-    lazy val classStruct: Type.Struct = {
-      val data            = allfields.map(_.ty)
-      val classStructName = name tag "class"
-      val classStructBody = Type.Ptr +: data
-      val classStructTy   = Type.Struct(classStructName, classStructBody)
-
-      Type.Struct(classStructName, classStructBody)
-    }
-
-    lazy val vtable: Seq[Val] = {
+    def vtable: Seq[Val] = {
       val base = parent.fold(Seq.empty[Val])(_.vtable)
 
       val overrides = methods.flatMap { meth =>
@@ -150,7 +159,7 @@ object World {
       baseWithOverrides ++ vslots.map(_.value)
     }
 
-    lazy val imap: Map[Method, Val] = {
+    def imap: Map[Method, Val] = {
       val traitOverrides = allmethods.flatMap { meth =>
         meth.traitOverrides.map((meth, _))
       }
@@ -168,7 +177,7 @@ object World {
       }.toMap
     }
 
-    lazy val alloverrides: Seq[(Method, Method)] = {
+    def alloverrides: Seq[(Method, Method)] = {
       val base = parent.fold(Seq.empty[(Method, Method)])(_.alloverrides)
       base ++ methods.flatMap {
         case meth if meth.overrides.nonEmpty =>
@@ -188,7 +197,8 @@ object World {
 
   final class Method(val attrs: Attrs,
                      val name: Global,
-                     val ty: nir.Type,
+                     var ty: nir.Type,
+                     var insts: Seq[nir.Inst],
                      val isConcrete: Boolean)
       extends Node {
     var overrides: Seq[Method] = Seq()
@@ -198,29 +208,29 @@ object World {
 
     def isStatic = !isVirtual
 
-    lazy val value =
+    def value =
       if (isConcrete) Val.Global(name, Type.Ptr)
       else Val.Zero(Type.Ptr)
 
-    lazy val classOverrides: Seq[Method] = overrides.collect {
-      case meth if meth.inClass =>
+    def classOverrides: Seq[Method] = overrides.collect {
+      case meth if meth.in.isClass =>
         meth
     }
 
-    lazy val traitOverrides: Seq[Method] = overrides.collect {
-      case meth if meth.inTrait =>
+    def traitOverrides: Seq[Method] = overrides.collect {
+      case meth if meth.in.isTrait =>
         meth
     }
 
-    lazy val vslot: Method = {
+    def vslot: Method = {
       assert(isVirtual)
 
       classOverrides.headOption.fold(this)(_.vslot)
     }
 
-    lazy val vindex: Int = {
+    def vindex: Int = {
       assert(isVirtual)
-      assert(inClass)
+      assert(in.isClass)
 
       val cls = in.asInstanceOf[Class]
       val res = cls.allvslots.indexOf(this)
@@ -239,10 +249,14 @@ object World {
       }
   }
 
-  final class Field(val attrs: Attrs, val name: Global, val ty: nir.Type)
+  final class Field(val attrs: Attrs,
+                    val name: Global,
+                    var ty: nir.Type,
+                    var rhs: Val,
+                    val isConst: Boolean)
       extends Node {
     def index = {
-      assert(inClass)
+      assert(in.isClass)
       in.asInstanceOf[Class].allfields.indexOf(this)
     }
   }
@@ -254,21 +268,191 @@ object World {
       }
   }
 
-  final class Top(val nodes: mutable.Map[Global, Node],
-                  val structs: Seq[Struct],
-                  val classes: Seq[Class],
-                  val traits: Seq[Trait],
-                  override val methods: Seq[Method],
-                  override val fields: Seq[Field])
-      extends Scope {
-    val fresh = nir.Fresh("tx")
-    def name  = Global.None
-    def attrs = Attrs.None
+  final class Top(val main: Option[Global]) extends Scope {
+    val nodes            = mutable.Map.empty[Global, Node]
+    val structs          = mutable.UnrolledBuffer.empty[Struct]
+    val classes          = mutable.UnrolledBuffer.empty[Class]
+    val traits           = mutable.UnrolledBuffer.empty[Trait]
+    override val methods = mutable.UnrolledBuffer.empty[Method]
+    override val fields  = mutable.UnrolledBuffer.empty[Field]
+    val unresolved       = mutable.Set.empty[Global]
+    val links            = mutable.Set.empty[Attr.Link]
+
+    def enter(node: Node): Unit = {
+      def strip(n: Global): Global = {
+        val id = n.id
+        assert(id.startsWith("extern."))
+        Global.Top(id.substring(7)) // strip extern. prefix
+      }
+
+      val name =
+        if (node.attrs.isExtern && (node.isMethod || node.isField))
+          strip(node.name)
+        else node.name
+
+      if (nodes.contains(name)) {
+        println(s"overwriting $name : ${nodes(name)} -> $node")
+      }
+
+      nodes += name -> node
+      node match {
+        case node: Class  => classes += node // id given in assignClassIds
+        case node: Trait  => node.id = traits.length; traits += node
+        case node: Method => methods += node // id given in assignMethodIds
+        case node: Field  => node.id = fields.length; fields += node
+        case node: Struct => node.id = structs.length; structs += node
+        case _            => unreachable
+      }
+    }
+
+    def enter(defn: Defn): Unit = defn match {
+      case defn: Defn.Trait =>
+        enter(new Trait(defn.attrs, defn.name, defn.traits))
+
+      case defn: Defn.Class =>
+        enter(
+          new Class(defn.attrs,
+                    defn.name,
+                    defn.parent,
+                    defn.traits,
+                    isModule = false))
+
+      case defn: Defn.Module =>
+        enter(
+          new Class(defn.attrs,
+                    defn.name,
+                    defn.parent,
+                    defn.traits,
+                    isModule = true))
+
+      case defn: Defn.Var =>
+        enter(
+          new Field(defn.attrs,
+                    defn.name,
+                    defn.ty,
+                    defn.value,
+                    isConst = false))
+
+      case defn: Defn.Const =>
+        enter(
+          new Field(defn.attrs,
+                    defn.name,
+                    defn.ty,
+                    defn.value,
+                    isConst = true))
+
+      case defn: Defn.Declare =>
+        enter(
+          new Method(defn.attrs,
+                     defn.name,
+                     defn.ty,
+                     Seq.empty,
+                     isConcrete = false))
+
+      case defn: Defn.Define =>
+        enter(
+          new Method(defn.attrs,
+                     defn.name,
+                     defn.ty,
+                     defn.insts,
+                     isConcrete = true))
+
+      case defn: Defn.Struct =>
+        enter(new Struct(defn.attrs, defn.name, defn.tys))
+
+      case _ =>
+        ()
+    }
+
+    def finish(): Unit = {
+      def enrichMethods(): Unit = methods.foreach { node =>
+        if (node.name.isTop) {
+          node.in = this
+        } else {
+          val owner = nodes(node.name.top).asInstanceOf[Scope]
+          node.in = owner
+          owner.members = owner.members :+ node
+          node.attrs.overrides.foreach { n =>
+            val ovnode = nodes(n).asInstanceOf[Method]
+            node.overrides = node.overrides :+ ovnode
+            ovnode.overriden = ovnode.overriden :+ node
+          }
+        }
+      }
+
+      def enrichFields(): Unit = fields.foreach { node =>
+        println(s"enriching ${node.name}")
+        if (node.name.isTop) {
+          node.in = this
+        } else {
+          val parent = nodes(node.name.top).asInstanceOf[Class]
+          node.in = parent
+          parent.members = parent.members :+ node
+        }
+      }
+
+      def enrichClasses(): Unit = classes.foreach { node =>
+        val parent = node.parentName.map(nodes(_).asInstanceOf[Class])
+        val traits = node.traitNames.map(nodes(_).asInstanceOf[Trait])
+        node.in = this
+        node.parent = parent
+        node.traits = traits
+        parent.foreach { parent =>
+          parent.subclasses = parent.subclasses :+ node
+        }
+      }
+
+      def enrichTraits(): Unit = traits.foreach { node =>
+        node.in = this
+        node.traits = node.traitNames.map(n => nodes(n).asInstanceOf[Trait])
+      }
+
+      def assignClassIds(): Unit = {
+        var id = 0
+
+        def loop(node: Class): Unit = {
+          val start = id
+          id += 1
+          node.subclasses.foreach(loop)
+          val end = id - 1
+          node.id = start
+          node.range = start to end
+        }
+
+        loop(nodes(Rt.Object.name).asInstanceOf[Class])
+      }
+
+      def assignMethodIds(): Unit = {
+        val traitMethods = methods.filter(_.in.isTrait)
+        val restMethods  = methods.filterNot(_.in.isTrait)
+
+        var id = 0
+        traitMethods.foreach { meth =>
+          meth.id = id
+          id += 1
+        }
+        restMethods.foreach { meth =>
+          meth.id = id
+          id += 1
+        }
+      }
+
+      enrichMethods()
+      enrichFields()
+      enrichClasses()
+      enrichTraits()
+      assignClassIds()
+      assignMethodIds()
+    }
+
+    implicit val fresh = nir.Fresh("tx")
+    def name           = Global.None
+    def attrs          = Attrs.None
 
     lazy val dispatchName = Global.Top("__dispatch")
     lazy val dispatchVal  = Val.Global(dispatchName, Type.Ptr)
     lazy val (dispatchTy, dispatchDefn) = {
-      val traitMethods = methods.filter(_.inTrait).sortBy(_.id)
+      val traitMethods = methods.filter(_.in.isTrait).sortBy(_.id)
 
       val columns = classes.sortBy(_.id).map { cls =>
         val row = Array.fill[Val](traitMethods.length)(Val.Null)
@@ -298,149 +482,4 @@ object World {
       (table.ty, Defn.Const(Attrs.None, instanceName, table.ty, table))
     }
   }
-
-  def apply(defns: Seq[Defn]): Top = {
-    val nodes   = mutable.Map.empty[Global, Node]
-    val structs = mutable.UnrolledBuffer.empty[Struct]
-    val classes = mutable.UnrolledBuffer.empty[Class]
-    val traits  = mutable.UnrolledBuffer.empty[Trait]
-    val methods = mutable.UnrolledBuffer.empty[Method]
-    val fields  = mutable.UnrolledBuffer.empty[Field]
-
-    def enter[T <: Node](name: Global, node: T): T = {
-      nodes += name -> node
-      node match {
-        case defn: Class  => classes += defn // id given in assignClassIds
-        case defn: Trait  => node.id = traits.length; traits += defn
-        case defn: Method => methods += defn // id given in assignMethodIds
-        case defn: Field  => node.id = fields.length; fields += defn
-        case defn: Struct => node.id = structs.length; structs += defn
-      }
-      node
-    }
-
-    def enterDefn(defn: Defn): Unit = defn match {
-      case defn: Defn.Trait =>
-        enter(defn.name, new Trait(defn.attrs, defn.name, defn.traits))
-
-      case defn: Defn.Class =>
-        enter(defn.name,
-              new Class(defn.attrs,
-                        defn.name,
-                        defn.parent,
-                        defn.traits,
-                        isModule = false))
-
-      case defn: Defn.Module =>
-        enter(defn.name,
-              new Class(defn.attrs,
-                        defn.name,
-                        defn.parent,
-                        defn.traits,
-                        isModule = true))
-
-      case defn: Defn.Var =>
-        enter(defn.name, new Field(defn.attrs, defn.name, defn.ty))
-
-      case defn: Defn.Declare =>
-        enter(defn.name,
-              new Method(defn.attrs, defn.name, defn.ty, isConcrete = false))
-
-      case defn: Defn.Define =>
-        enter(defn.name,
-              new Method(defn.attrs, defn.name, defn.ty, isConcrete = true))
-
-      case defn: Defn.Struct =>
-        enter(defn.name, new Struct(defn.attrs, defn.name, defn.tys))
-
-      case _ =>
-        ()
-    }
-
-    defns.foreach(enterDefn)
-    val top = new Top(nodes = nodes,
-                      structs = structs,
-                      classes = classes,
-                      traits = traits,
-                      methods = methods,
-                      fields = fields)
-    top.members = nodes.values.toSeq
-
-    def enrichMethods(): Unit = methods.foreach { node =>
-      if (node.name.isTop) {
-        node.in = top
-      } else {
-        val owner = nodes(node.name.top).asInstanceOf[Scope]
-        node.in = owner
-        owner.members = owner.members :+ node
-        node.attrs.overrides.foreach { n =>
-          val ovnode = nodes(n).asInstanceOf[Method]
-          node.overrides = node.overrides :+ ovnode
-          ovnode.overriden = ovnode.overriden :+ node
-        }
-      }
-    }
-
-    def enrichFields(): Unit = fields.foreach { node =>
-      val parent = nodes(node.name.top).asInstanceOf[Class]
-      node.in = parent
-      parent.members = parent.members :+ node
-    }
-
-    def enrichClasses(): Unit = classes.foreach { node =>
-      val parent = node.parentName.map(nodes(_).asInstanceOf[Class])
-      val traits = node.traitNames.map(nodes(_).asInstanceOf[Trait])
-      node.in = top
-      node.parent = parent
-      node.traits = traits
-      parent.foreach { parent =>
-        parent.subclasses = parent.subclasses :+ node
-      }
-    }
-
-    def enrichTraits(): Unit = traits.foreach { node =>
-      node.in = top
-      node.traits = node.traitNames.map(n => nodes(n).asInstanceOf[Trait])
-    }
-
-    def assignClassIds(): Unit = {
-      var id = 0
-
-      def loop(node: Class): Unit = {
-        val start = id
-        id += 1
-        node.subclasses.foreach(loop)
-        val end = id - 1
-        node.id = start
-        node.range = start to end
-      }
-
-      loop(nodes(Rt.Object.name).asInstanceOf[Class])
-    }
-
-    def assignMethodIds(): Unit = {
-      val traitMethods = methods.filter(_.inTrait)
-      val restMethods  = methods.filterNot(_.inTrait)
-
-      var id = 0
-      traitMethods.foreach { meth =>
-        meth.id = id
-        id += 1
-      }
-      restMethods.foreach { meth =>
-        meth.id = id
-        id += 1
-      }
-    }
-
-    enrichMethods()
-    enrichFields()
-    enrichClasses()
-    enrichTraits()
-    assignClassIds()
-    assignMethodIds()
-
-    top
-  }
-
 }
